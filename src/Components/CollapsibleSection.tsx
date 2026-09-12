@@ -1,3 +1,4 @@
+import AntDesign from "@react-native-vector-icons/ant-design";
 import React, { useRef, useState, useCallback } from "react";
 import {
     Animated,
@@ -81,7 +82,7 @@ export default function CollapsibleSection({
 
     const animatedRotate = animation.interpolate({
         inputRange: [0, 1],
-        outputRange: ["0deg", "90deg"],
+        outputRange: ["0deg", "180deg"],
     });
 
     const runAnimation = useCallback(
@@ -150,7 +151,7 @@ export default function CollapsibleSection({
                             { transform: [{ rotate: animatedRotate }] },
                         ]}
                     >
-                        ›
+                        <AntDesign name="caret-down" />
                     </Animated.Text>
                 )}
             </TouchableOpacity>

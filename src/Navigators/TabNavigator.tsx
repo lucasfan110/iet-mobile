@@ -32,6 +32,16 @@ export function TabNavigator() {
                     ),
                 }}
             />
+            <Tab.Screen
+                name="CampusMapTab"
+                component={LocationsStackNavigator}
+                options={{
+                    title: "Campus Map",
+                    tabBarIcon: () => (
+                        <AntDesign name="environment" color="black" size={20} />
+                    ),
+                }}
+            />
         </Tab.Navigator>
     );
 }

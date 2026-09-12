@@ -17,21 +17,8 @@ type LocationsDetailScreenNavigationProp = NativeStackNavigationProp<
 >;
 
 export function LocationsDetailScreen({ route }: Props) {
-    const { name, lat, lng, link } = route.params;
+    const { name, lat, lng, url } = route.params;
     const navigation = useNavigation<LocationsDetailScreenNavigationProp>();
-
-    let latNum: number, lngNum: number;
-
-    try {
-        latNum = Number(lat);
-        lngNum = Number(lng);
-    } catch {
-        return (
-            <Text style={commonStyles.errorText}>
-                Failed to load the map. Please contact assistance.
-            </Text>
-        );
-    }
 
     function onBackButtonPress() {
         navigation.pop();
@@ -54,14 +41,14 @@ export function LocationsDetailScreen({ route }: Props) {
                 <MapView
                     style={styles.mapView}
                     initialRegion={{
-                        latitude: latNum,
-                        longitude: lngNum,
+                        latitude: lat,
+                        longitude: lng,
                         latitudeDelta: 0.01,
                         longitudeDelta: 0.01,
                     }}
                 >
                     <MapMarker
-                        coordinate={{ latitude: latNum, longitude: lngNum }}
+                        coordinate={{ latitude: lat, longitude: lng }}
                         titleVisibility="visible"
                         title={name}
                     />
@@ -74,9 +61,9 @@ export function LocationsDetailScreen({ route }: Props) {
                     color="black"
                     // style={commonStyles.debug}
                 />
-                {link ? (
+                {url ? (
                     <UrlLink
-                        href={link}
+                        href={url}
                         style={[styles.websiteText /*, commonStyles.debug*/]}
                     />
                 ) : (

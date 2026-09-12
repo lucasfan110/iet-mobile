@@ -4,22 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import {
     NativeScrollEvent,
     NativeSyntheticEvent,
-    Pressable,
     ScrollView,
     StyleSheet,
     Text,
     View,
 } from "react-native";
-import CollapsibleSection from "../Components/CollapsibleSection";
 import { LoadingText } from "../Components/LoadingText";
 import { LocationItem } from "../Components/LocationItem";
 import SearchBar from "../Components/SearchBar";
 import { Spinner } from "../Components/Spinner";
 import { useLocationsData } from "../Hooks/useLocationsData";
 import { AGGIE_BLUE, commonStyles } from "../Theme/commonStyles";
-import { LocationBlock, LocationData } from "../Types/Locations";
+import { LocationData } from "../Types/Locations";
 import { LocationsStackParamList } from "../Types/LocationsStackParamList";
-import * as SQLite from "expo-sqlite";
 
 type LocationsMainScreenNavigationProp = NativeStackNavigationProp<
     LocationsStackParamList,
@@ -46,11 +43,11 @@ export function LocationsMainScreen() {
     // Item id as key, indices of highlight as value
     const textMatchInfo = useRef<Map<string, number[]>>(new Map());
     const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
-    const dataOrEmpty = data ?? [];
+    const locations = data?.locations ?? [];
     const [isRendering, setIsRendering] = useState(false);
 
     const [currentlyDisplayedData, setCurrentlyDisplayedData] = useState<
-        LocationBlock[]
+        LocationData[]
     >([]);
 
     useEffect(() => {
@@ -68,7 +65,7 @@ export function LocationsMainScreen() {
     }, [searchQuery]);
 
     useEffect(() => {
-        setCurrentlyDisplayedData(dataOrEmpty);
+        setCurrentlyDisplayedData(locations);
         search(searchQuery);
     }, [data]);
 
@@ -80,30 +77,41 @@ export function LocationsMainScreen() {
         textMatchInfo.current.clear();
 
         if (searchQuery === "") {
-            setCurrentlyDisplayedData(dataOrEmpty);
+            setCurrentlyDisplayedData(locations);
             setIsRendering(true);
             return;
         }
 
-        const filteredDisplayData: LocationBlock[] = [];
+        const filteredDisplayData: LocationData[] = [];
 
-        for (const locationBlock of dataOrEmpty) {
-            const filteredLocations: LocationData[] = [];
+        // for (const locationBlock of dataOrEmpty) {
+        //     const filteredLocations: LocationData[] = [];
 
-            for (const location of locationBlock.locations) {
-                const indices = findAllMatches(location.name, searchQuery);
+        //     for (const location of locationBlock.locations) {
+        //         const indices = findAllMatches(location.name, searchQuery);
 
-                if (indices.length > 0) {
-                    textMatchInfo.current.set(location.id, indices);
-                    filteredLocations.push(location);
-                }
-            }
+        //         if (indices.length > 0) {
+        //             textMatchInfo.current.set(location.id, indices);
+        //             filteredLocations.push(location);
+        //         }
+        //     }
 
-            if (filteredLocations.length > 0) {
-                filteredDisplayData.push({
-                    name: locationBlock.name,
-                    locations: filteredLocations,
-                });
+        //     if (filteredLocations.length > 0) {
+        //         filteredDisplayData.push({
+        //             name: locationBlock.name,
+        //             locations: filteredLocations,
+        //         });
+        //     }
+        // }
+
+        const filteredLocations: LocationData[] = [];
+
+        for (const location of locations) {
+            const indices = findAllMatches(location.name, searchQuery);
+
+            if (indices.length > 0) {
+                textMatchInfo.current.set(location.id, indices);
+                filteredLocations.push(location);
             }
         }
 
@@ -131,7 +139,7 @@ export function LocationsMainScreen() {
                         name: location.name,
                         lat: location.lat,
                         lng: location.lng,
-                        link: location.link,
+                        url: location.url,
                     });
                 }}
                 boldOn={textBoldInfo}
@@ -140,9 +148,9 @@ export function LocationsMainScreen() {
     }
 
     function loadMore() {
-        if (visibleCount < dataOrEmpty.length) {
+        if (visibleCount < locations.length) {
             setVisibleCount(prev =>
-                Math.min(visibleCount + ITEMS_PER_PAGE, dataOrEmpty.length),
+                Math.min(visibleCount + ITEMS_PER_PAGE, locations.length),
             );
         }
     }
@@ -175,7 +183,6 @@ export function LocationsMainScreen() {
 
     return (
         <>
-            {/* {isRendering && <Spinner style={styles.searchSpinner} />} */}
             {isRendering && (
                 <View style={styles.searchSpinner}>
                     <Spinner />
@@ -205,8 +212,6 @@ export function LocationsMainScreen() {
                 <ScrollView
                     contentContainerStyle={{ flexGrow: 1 }}
                     style={styles.scrollView}
-                    // onScroll={onPageScroll}
-                    // scrollEventThrottle={16}
                 >
                     {isPending ? (
                         <View style={[styles.spinnerContainer]}>
@@ -215,7 +220,7 @@ export function LocationsMainScreen() {
                         </View>
                     ) : (
                         <View style={styles.mainContainer}>
-                            {currentlyDisplayedData
+                            {/* {currentlyDisplayedData
                                 .slice(0, visibleCount)
                                 .map(locationBlock => (
                                     <CollapsibleSection
@@ -228,11 +233,13 @@ export function LocationsMainScreen() {
                                             )}
                                         </View>
                                     </CollapsibleSection>
-                                    // <View style={styles.locationsList}>
-                                    //     {locationBlock.locations.map(data =>
-                                    //         renderLocation(data),
-                                    //     )}
-                                    // </View>
+                                ))} */}
+                            {currentlyDisplayedData
+                                .slice(0, 100)
+                                .map(location => (
+                                    <View style={styles.locationsList}>
+                                        {renderLocation(location)},
+                                    </View>
                                 ))}
                         </View>
                     )}

@@ -1,9 +1,10 @@
 export type LocationsStackParamList = {
     Main: undefined;
+    CampusMap: undefined;
     Detail: {
         name: string;
-        lat: string;
-        lng: string;
-        link: string;
+        lat: number;
+        lng: number;
+        url: string;
     };
 };

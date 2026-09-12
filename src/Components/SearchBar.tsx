@@ -11,6 +11,7 @@ import {
     ViewStyle,
 } from "react-native";
 import { AGGIE_BLUE_LIGHTER } from "../Theme/commonStyles";
+import Lucide from "@react-native-vector-icons/lucide";
 
 export interface SearchBarProps {
     /** Current search text — keep this controlled from the parent/hook */
@@ -75,7 +76,7 @@ export default function SearchBar({
                 {loading ? (
                     <ActivityIndicator size="small" style={styles.icon} />
                 ) : (
-                    <AntDesign name="search" style={styles.icon} />
+                    <Lucide name="search" style={styles.icon} />
                 )}
 
                 <TextInput
@@ -130,7 +131,6 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         paddingHorizontal: 10,
         height: 40,
-        backgroundColor: AGGIE_BLUE_LIGHTER,
     },
     icon: {
         marginRight: 20,

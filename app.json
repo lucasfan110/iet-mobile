@@ -1,31 +1,46 @@
 {
-  "expo": {
-    "name": "iet-project",
-    "slug": "iet-project",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false,
-      "package": "com.lucasfan248.ietproject"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-status-bar",
-      "react-native-maps",
-      "expo-sqlite"
-    ]
-  }
+    "expo": {
+        "name": "iet-project",
+        "slug": "iet-project",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "icon": "./assets/icon.png",
+        "userInterfaceStyle": "light",
+        "ios": {
+            "supportsTablet": true
+        },
+        "android": {
+            "adaptiveIcon": {
+                "backgroundColor": "#E6F4FE",
+                "foregroundImage": "./assets/android-icon-foreground.png",
+                "backgroundImage": "./assets/android-icon-background.png",
+                "monochromeImage": "./assets/android-icon-monochrome.png"
+            },
+            "predictiveBackGestureEnabled": false,
+            "package": "com.lucasfan248.ietproject",
+            "permissions": [
+                "ACCESS_FINE_LOCATION",
+                "ACCESS_COARSE_LOCATION"
+            ]
+        },
+        "web": {
+            "favicon": "./assets/favicon.png"
+        },
+        "plugins": [
+            "expo-status-bar",
+            "expo-sqlite",
+            [
+                "react-native-maps",
+                {
+                    "androidGoogleMapsApiKey": "AIzaSyBHrhOLuIRsZtPEvqi2FUhdbTVy-l-cP5I"
+                }
+            ],
+            [
+                "expo-location",
+                {
+                    "locationWhenInUsePermission": "Allow this app to access your location while active to show your position on the map."
+                }
+            ]
+        ]
+    }
 }

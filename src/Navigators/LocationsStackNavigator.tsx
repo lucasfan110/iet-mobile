@@ -5,13 +5,14 @@ import { FeedStackParamList } from "../Types/FeedStackParamList";
 import { LocationsStackParamList } from "../Types/LocationsStackParamList";
 import { LocationsMainScreen } from "../Screens/LocationsMainScreen";
 import { LocationsDetailScreen } from "../Screens/LocationsDetailScreen";
+import { CampusMapMainScreen } from "../Screens/CampusMapMainScreen";
 
 const Stack = createNativeStackNavigator<LocationsStackParamList>();
 
 export function LocationsStackNavigator() {
     return (
         <Stack.Navigator
-            initialRouteName="Main"
+            initialRouteName="CampusMap"
             screenOptions={{ headerShown: false }}
         >
             <Stack.Screen
@@ -19,6 +20,7 @@ export function LocationsStackNavigator() {
                 component={LocationsMainScreen}
                 options={{ title: "" }}
             />
+            <Stack.Screen name="CampusMap" component={CampusMapMainScreen} />
             <Stack.Screen
                 name="Detail"
                 component={LocationsDetailScreen}
