@@ -29,12 +29,7 @@
         "plugins": [
             "expo-status-bar",
             "expo-sqlite",
-            [
-                "react-native-maps",
-                {
-                    "androidGoogleMapsApiKey": "AIzaSyBHrhOLuIRsZtPEvqi2FUhdbTVy-l-cP5I"
-                }
-            ],
+            "react-native-maps",
             [
                 "expo-location",
                 {
