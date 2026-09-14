@@ -1,78 +1,53 @@
-import Lucide from "@react-native-vector-icons/lucide";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Location from "expo-location";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+    ImageRequireSource,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 // import MapView from "react-native-map-clustering";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import MapView, { Callout, MapMarker } from "react-native-maps";
+import { LocationCategoryCheckbox } from "../Components/LocationCategoryCheckbox";
+import SearchBar from "../Components/SearchBar";
 import { useLocationsData } from "../Hooks/useLocationsData";
 import {
     AGGIE_BLUE,
     AGGIE_BLUE_LIGHTER,
     commonStyles,
 } from "../Theme/commonStyles";
-import { CATEGORY_IDS, CategoryId, LocationData } from "../Types/Locations";
+import { CategoryId, LocationData } from "../Types/Locations";
 import { LocationsStackParamList } from "../Types/LocationsStackParamList";
-import SearchBar from "../Components/SearchBar";
-import { Checkbox } from "expo-checkbox";
-import { LocationCategoryCheckbox } from "../Components/LocationCategoryCheckbox";
 
 type CampusMapMainScreenNavigationProp = NativeStackNavigationProp<
     LocationsStackParamList,
     "CampusMap"
 >;
 
-/**
- * The application will first look at the `LOCATION_SUBCATEGORIES_ICON` for a
- * specific subcategory icon, and apply that. If you didn't specify a subcategory
- * icon, then it'll fall back to whatever icon you chose for the
- * `LOCATION_CATEGORY_ICON`. Same thing applies for the background color
- */
+const LOCATION_CATEGORY_MARKER_IMAGE: Record<CategoryId, ImageRequireSource> = {
+    "student-staff-resources": require("../Assets/MapIcons/student-staff-resources.png"),
+    "housing-dining": require("../Assets/MapIcons/housing-dining.png"),
+    "places-of-interest": require("../Assets/MapIcons/places-of-interest.png"),
+    "public-art": require("../Assets/MapIcons/public-art.png"),
+    recreation: require("../Assets/MapIcons/recreation.png"),
+    "transportation-parking": require("../Assets/MapIcons/transportation-parking.png"),
+    accessibility: require("../Assets/MapIcons/accessibility.png"),
+    "athletics-recreation": require("../Assets/MapIcons/athletics-recreation.png"),
+    "academic-administration": require("../Assets/MapIcons/academic-administration.png"),
+    support: require("../Assets/MapIcons/support.png"),
+    other: require("../Assets/MapIcons/other.png"),
+};
 
-const LOCATION_CATEGORY_ICON = {
-    "student-staff-resources": "building-2",
-    "housing-dining": "utensils",
-    "places-of-interest": "landmark",
-    "public-art": "palette",
-    recreation: "sport-shoe",
-    "transportation-parking": "square-parking",
-    accessibility: "accessibility",
-    "athletics-recreation": "medal",
-    "academic-administration": "university",
-    support: "headset",
-    other: "building",
-} as const;
-
-const LOCATION_SUBCATEGORY_ICON = {
-    "unitrans-terminals": "bus-front",
-    "student-housing": "house",
-    "private-on-campus-apartments": "house",
-    "faculty-staff-housing": "house",
-    "gender-inclusive-restrooms": "toilet",
-} as const;
-
-const LOCATION_CATEGORY_BACKGROUND_COLOR = {
-    "student-staff-resources": AGGIE_BLUE,
-    "housing-dining": "#D80",
-    "places-of-interest": "#DC143C",
-    "public-art": "#DC143C",
-    recreation: "#388004",
-    "transportation-parking": "#3AF",
-    accessibility: AGGIE_BLUE,
-    "athletics-recreation": "#388004",
-    "academic-administration": AGGIE_BLUE,
-    support: AGGIE_BLUE,
-    other: AGGIE_BLUE,
-} as const;
-
-const LOCATION_SUBCATEGORY_BACKGROUND_COLOR = new Map(
+const LOCATION_SUBCATEGORY_MARKER_IMAGE = new Map<string, ImageRequireSource>(
     Object.entries({
-        "unitrans-terminals": "#F00",
-        "student-housing": "#0B0",
-        "private-on-campus-apartments": "#0B0",
-        "faculty-staff-housing": "#0B0",
-        "gender-inclusive-restrooms": "#4A4A4A",
+        "unitrans-terminals": require("../Assets/MapIcons/unitrans-terminals.png"),
+        "student-housing": require("../Assets/MapIcons/student-housing.png"),
+        "private-on-campus-apartments": require("../Assets/MapIcons/private-on-campus-apartments.png"),
+        "faculty-staff-housing": require("../Assets/MapIcons/faculty-staff-housing.png"),
+        "gender-inclusive-restrooms": require("../Assets/MapIcons/gender-inclusive-restrooms.png"),
     }),
 );
 
@@ -91,7 +66,16 @@ async function requestLocationPermission(): Promise<boolean> {
     }
 }
 
+function matchesSearchQuery(location: LocationData, query: string): boolean {
+    if (!location.searchable) {
+        return false;
+    }
+
+    return location.name.toLowerCase().includes(query.toLowerCase());
+}
+
 const BASE_ICON_SIZE = 15;
+const TIME_MS_TILL_TRACKS_CHANGE_FALSE = 2000;
 
 const INITIAL_CATEGORIES_DISPLAYED: CategoryId[] = [
     "transportation-parking",
@@ -103,11 +87,30 @@ export function CampusMapMainScreen() {
     const navigation = useNavigation<CampusMapMainScreenNavigationProp>();
     const { data: locationData, isPending, isError } = useLocationsData();
     const [tracksViewChange, setTracksViewChange] = useState(true);
+    const [trackedMarkerIds, setTrackedMarkerIds] = useState<Set<string>>(
+        () => new Set(),
+    );
     const [searchQuery, setSearchQuery] = useState("");
+    const [submittedSearchQuery, setSubmittedSearchQuery] = useState("");
     const [selectedCategories, setSelectedCategories] = useState(
         () => new Set(INITIAL_CATEGORIES_DISPLAYED),
     );
-    const [checked, setChecked] = useState(true);
+    const settledMarkerIdsRef = useRef<Set<string>>(new Set());
+    const trackChangeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+        null,
+    );
+
+    const visibleLocations = useMemo(() => {
+        return (
+            locationData?.locations
+                .filter(location => selectedCategories.has(location.categoryId))
+                .filter(
+                    location =>
+                        submittedSearchQuery === "" ||
+                        matchesSearchQuery(location, submittedSearchQuery),
+                ) ?? []
+        );
+    }, [locationData, selectedCategories, submittedSearchQuery]);
 
     useEffect(() => {
         (async () => {
@@ -116,45 +119,65 @@ export function CampusMapMainScreen() {
     }, []);
 
     useEffect(() => {
-        setTimeout(() => {
-            setTracksViewChange(false);
-        }, 2000);
-    }, [selectedCategories]);
+        return () => {
+            if (trackChangeTimeoutRef.current !== null) {
+                clearTimeout(trackChangeTimeoutRef.current);
+            }
+        };
+    }, []);
 
-    function renderLocationIcon(location: LocationData) {
-        if (Object.hasOwn(LOCATION_SUBCATEGORY_ICON, location.subcategoryId)) {
-            const icon =
-                LOCATION_SUBCATEGORY_ICON[
-                    location.subcategoryId as keyof typeof LOCATION_SUBCATEGORY_ICON
-                ];
+    useEffect(() => {
+        const visibleIds = new Set(
+            visibleLocations.map(location => location.id),
+        );
 
-            return (
-                <Lucide
-                    name={icon}
-                    size={BASE_ICON_SIZE}
-                    style={styles.locationIconStyle}
-                />
-            );
+        for (const id of settledMarkerIdsRef.current) {
+            if (!visibleIds.has(id)) {
+                settledMarkerIdsRef.current.delete(id);
+            }
         }
 
-        return (
-            <Lucide
-                name={LOCATION_CATEGORY_ICON[location.categoryId]}
-                size={BASE_ICON_SIZE}
-                style={styles.locationIconStyle}
-            />
+        const newlyVisibleIds = [...visibleIds].filter(
+            id => !settledMarkerIdsRef.current.has(id),
         );
-    }
 
-    function getBackgroundColor(location: LocationData): string {
-        const subcategoryColor = LOCATION_SUBCATEGORY_BACKGROUND_COLOR.get(
+        if (newlyVisibleIds.length === 0) {
+            return;
+        }
+
+        setTrackedMarkerIds(prev => {
+            const next = new Set(prev);
+            for (const id of newlyVisibleIds) {
+                next.add(id);
+            }
+
+            return next;
+        });
+
+        if (trackChangeTimeoutRef.current !== null) {
+            clearTimeout(trackChangeTimeoutRef.current);
+        }
+
+        trackChangeTimeoutRef.current = setTimeout(() => {
+            setTrackedMarkerIds(prev => {
+                for (const id of prev) {
+                    settledMarkerIdsRef.current.add(id);
+                }
+                return new Set();
+            });
+        }, TIME_MS_TILL_TRACKS_CHANGE_FALSE);
+    }, [visibleLocations]);
+
+    function getMarkerImage(location: LocationData): ImageRequireSource {
+        const subcategoryImage = LOCATION_SUBCATEGORY_MARKER_IMAGE.get(
             location.subcategoryId,
         );
-        if (subcategoryColor !== undefined) {
-            return subcategoryColor;
+
+        if (subcategoryImage !== undefined) {
+            return subcategoryImage;
         }
 
-        return LOCATION_CATEGORY_BACKGROUND_COLOR[location.categoryId];
+        return LOCATION_CATEGORY_MARKER_IMAGE[location.categoryId];
     }
 
     function setCategoryValue(categoryId: CategoryId, value: boolean) {
@@ -169,6 +192,14 @@ export function CampusMapMainScreen() {
         });
     }
 
+    function handleSearchSubmit(query: string) {
+        setSubmittedSearchQuery(query.trim());
+    }
+
+    function handleSearchClear() {
+        setSubmittedSearchQuery("");
+    }
+
     return (
         <View style={styles.mainContainer}>
             <View style={styles.headerContainer}>
@@ -176,6 +207,8 @@ export function CampusMapMainScreen() {
                     <SearchBar
                         value={searchQuery}
                         onChangeText={setSearchQuery}
+                        onSubmit={handleSearchSubmit}
+                        onClear={handleSearchClear}
                         placeholder="Search locations"
                     />
                 </View>
@@ -188,7 +221,6 @@ export function CampusMapMainScreen() {
                             value={selectedCategories.has(category.id)}
                             onValueChange={checked => {
                                 setCategoryValue(category.id, checked);
-                                setTracksViewChange(true);
                             }}
                             key={category.id}
                         >
@@ -216,45 +248,31 @@ export function CampusMapMainScreen() {
                     //     />
                     // )}
                 >
-                    {locationData?.locations
-                        .filter(location =>
-                            selectedCategories.has(location.categoryId),
-                        )
-                        .map(location => (
-                            <MapMarker
-                                key={`${location.id}`}
-                                coordinate={{
-                                    latitude: Number(location.lat),
-                                    longitude: Number(location.lng),
+                    {visibleLocations.map(location => (
+                        <MapMarker
+                            key={location.id}
+                            coordinate={{
+                                latitude: Number(location.lat),
+                                longitude: Number(location.lng),
+                            }}
+                            tracksViewChanges={false}
+                            image={getMarkerImage(location)}
+                        >
+                            <Callout
+                                onPress={() => {
+                                    navigation.navigate("Detail", {
+                                        ...location,
+                                    });
                                 }}
-                                tracksViewChanges={tracksViewChange}
                             >
-                                <View
-                                    style={[
-                                        styles.locationIconContainer,
-                                        {
-                                            backgroundColor:
-                                                getBackgroundColor(location),
-                                        },
-                                    ]}
-                                >
-                                    {renderLocationIcon(location)}
+                                <View style={styles.calloutContainer}>
+                                    <Text style={commonStyles.title}>
+                                        {location.name}
+                                    </Text>
                                 </View>
-                                <Callout
-                                    onPress={() => {
-                                        navigation.navigate("Detail", {
-                                            ...location,
-                                        });
-                                    }}
-                                >
-                                    <View style={styles.calloutContainer}>
-                                        <Text style={commonStyles.title}>
-                                            {location.name}
-                                        </Text>
-                                    </View>
-                                </Callout>
-                            </MapMarker>
-                        ))}
+                            </Callout>
+                        </MapMarker>
+                    ))}
                 </MapView>
             </View>
         </View>
@@ -293,7 +311,7 @@ const styles = StyleSheet.create({
     },
     headerContainer: {
         backgroundColor: AGGIE_BLUE,
-        paddingTop: 40,
+        paddingTop: 50,
     },
     categoriesContainer: {
         paddingHorizontal: 20,
@@ -301,5 +319,6 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         gap: 20,
         backgroundColor: AGGIE_BLUE_LIGHTER,
+        minWidth: "100%",
     },
 });
