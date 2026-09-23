@@ -1,20 +1,3 @@
-// export interface LocationData {
-//     id: string;
-//     name: string;
-//     abbr: string;
-//     lat: string;
-//     lng: string;
-//     link: string;
-//     icon: string;
-//     glyph: string;
-//     image?: string;
-// }
-
-// export interface LocationBlock {
-//     name: string;
-//     locations: LocationData[];
-// }
-
 export const CATEGORY_IDS = [
     "student-staff-resources",
     "housing-dining",
@@ -31,6 +14,8 @@ export const CATEGORY_IDS = [
 
 export type CategoryId = (typeof CATEGORY_IDS)[number];
 
+export type LocationKind = "building" | "poi" | "parking";
+
 export interface LocationQueryData {
     locations: LocationData[];
     categories: LocationCategory[];
@@ -38,17 +23,19 @@ export interface LocationQueryData {
 
 export interface LocationData {
     id: string;
-    kind: string;
+    kind: LocationKind;
     name: string;
     categoryId: CategoryId;
     lat: number;
     lng: number;
     subcategoryId: string;
-    url: string;
-    imageUrl: string;
+    url?: string;
+    imageUrl?: string;
+    description?: string;
+    groupName?: string;
     searchable: boolean;
     navigable: boolean;
-    buildingId: string;
+    buildingId?: string;
 }
 
 export interface LocationSubcategory {
@@ -59,5 +46,5 @@ export interface LocationSubcategory {
 export interface LocationCategory {
     id: CategoryId;
     name: string;
-    subcategories: LocationCategory[];
+    subcategories: LocationSubcategory[];
 }

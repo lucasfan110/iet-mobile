@@ -1,11 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { Feed } from "../Types/Feed";
-import { LocationData, LocationQueryData } from "../Types/Locations";
-import { nanoid } from "nanoid/non-secure";
-import { useSQLiteContext } from "expo-sqlite";
+import { SQLiteDatabase, useSQLiteContext } from "expo-sqlite";
+import { LocationQueryData } from "../Types/Locations";
+import {
+    readLocationsFromDb,
+    readSyncStateFromDb,
+    touchLastCheckedToDb,
+    writeChecksumToDb,
+    writeLocationsToDb,
+} from "../Database/locationsDb";
 
 // https://mobile-dev.ucdavis.edu/api/v3/locations
+
+const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
+const HOSTNAME = "https://mobile.ucdavis.edu";
 
 function numberOrUndefined(text: string | undefined): number | undefined {
     const num = Number(text);
@@ -15,37 +23,6 @@ function numberOrUndefined(text: string | undefined): number | undefined {
 
     return num;
 }
-
-// async function fetchLocations(): Promise<LocationBlock[]> {
-//     // await new Promise(resolve => {
-//     //     setTimeout(resolve, 5000);
-//     // });
-
-//     const campusMap = axios.get(
-//         "https://mobile.ucdavis.edu/api/v2/locations/campus-map",
-//     );
-
-//     const studySpots = axios.get(
-//         "https://mobile.ucdavis.edu/api/v2/locations/study-spots",
-//     );
-
-//     const allLocationsDataRaw = await Promise.all([campusMap, studySpots]);
-//     const allLocationsData: LocationBlock[] = allLocationsDataRaw[0].data;
-
-//     // Push the study spots data, as a location block
-//     allLocationsData.push({
-//         name: "Study Spots",
-//         locations: allLocationsDataRaw[1].data,
-//     });
-
-//     for (const locationBlock of allLocationsData) {
-//         for (const location of locationBlock.locations) {
-//             location.id = nanoid();
-//         }
-//     }
-
-//     return allLocationsData;
-// }
 
 async function fetchLocations(): Promise<LocationQueryData> {
     const locationData = await axios.get(
@@ -58,66 +35,62 @@ async function fetchLocations(): Promise<LocationQueryData> {
     };
 }
 
+async function loadLocations(db: SQLiteDatabase): Promise<LocationQueryData> {
+    const syncState = await readSyncStateFromDb(db);
+
+    let checksum: string | undefined = undefined;
+    let timeToCheck = true;
+
+    if (syncState !== null) {
+        checksum = syncState.checksum;
+
+        if (Date.now() - syncState.last_checked_at <= CHECK_INTERVAL_MS) {
+            console.log(
+                "Not enough time elapsed to check for location updates from API.",
+            );
+            timeToCheck = false;
+        }
+    }
+
+    if (timeToCheck) {
+        console.log("Checking server for location updates...");
+        const locationData = await axios.get(`${HOSTNAME}/api/v3/locations`, {
+            headers: {
+                "If-None-Match": checksum,
+            },
+            validateStatus: s => (s >= 200 && s < 300) || s === 304,
+        });
+
+        if (locationData.status !== 304) {
+            await writeLocationsToDb(db, {
+                categories: locationData.data.categories,
+                locations: locationData.data.places,
+            });
+            await writeChecksumToDb(db, locationData.data.checksum);
+            console.log(
+                "Updated the database to match the new location data on the server.",
+            );
+        } else {
+            console.log("No new data from the server.");
+            await touchLastCheckedToDb(db);
+        }
+    }
+
+    const locationQuery = await readLocationsFromDb(db);
+
+    if (locationQuery !== null) {
+        return locationQuery;
+    } else {
+        throw new Error("Locations DB unexpectedly empty");
+    }
+}
+
 export function useLocationsData() {
     const db = useSQLiteContext();
 
-    // async function saveFetchedLocations(locationBlocks: LocationBlock[]) {
-    //     // Create location sections
-    //     await db.execAsync("DELETE FROM locations;");
-    //     await db.execAsync("DELETE FROM location_sections;");
-
-    //     await db.withTransactionAsync(async () => {
-    //         const locationSectionStatement = await db.prepareAsync(
-    //             `INSERT INTO location_sections (name) VALUES ($name)`,
-    //         );
-
-    //         try {
-    //             for (const locationBlock of locationBlocks) {
-    //                 const result = await locationSectionStatement.executeAsync({
-    //                     $name: locationBlock.name,
-    //                 });
-
-    //                 const locationStatement = await db.prepareAsync(
-    //                     `INSERT INTO locations (
-    //                         id, name, abbr, lat, lng, link,
-    //                         icon, glyph, image, section_id
-    //                     ) VALUES (
-    //                         $id, $name, $abbr, $lat, $lng, $link,
-    //                         $icon, $glyph, $image, ${result.lastInsertRowId}
-    //                     )`,
-    //                 );
-
-    //                 for (const location of locationBlock.locations) {
-    //                     await locationStatement.executeAsync({
-    //                         $id: location.id,
-    //                         $name: location.name,
-    //                         $abbr: location.abbr,
-    //                         $lat: Number(location.lat),
-    //                         $lng: Number(location.lng),
-    //                         $link: location.link,
-    //                         $icon: location.icon,
-    //                         $glyph: location.glyph,
-    //                         $image: location.image ?? null,
-    //                     });
-    //                 }
-    //             }
-    //         } finally {
-    //             await locationSectionStatement.finalizeAsync();
-    //         }
-    //     });
-    // }
-
-    // async function readLocations(): Promise<LocationBlock[]> {
-    //     const locations = await fetchLocations();
-
-    //     // await saveFetchedLocations(locations);
-
-    //     return locations;
-    // }
-
     const query = useQuery<LocationQueryData>({
         queryKey: ["locations"],
-        queryFn: fetchLocations,
+        queryFn: async () => await loadLocations(db),
     });
 
     return query;

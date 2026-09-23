@@ -5,6 +5,6 @@ export type LocationsStackParamList = {
         name: string;
         lat: number;
         lng: number;
-        url: string;
+        url?: string;
     };
 };

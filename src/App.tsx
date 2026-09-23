@@ -1,18 +1,18 @@
-import {
-    createStaticNavigation,
-    NavigationContainer,
-} from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { NavigationContainer } from "@react-navigation/native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { StyleSheet } from "react-native";
-import { FeedDetailScreen } from "./Screens/FeedDetailScreen";
-import { FeedMainScreen } from "./Screens/FeedMainScreen";
-import {
-    createBottomTabNavigator,
-    createBottomTabScreen,
-} from "@react-navigation/bottom-tabs";
-import { TabNavigator } from "./Navigators/TabNavigator";
+import * as SQLite from "expo-sqlite";
 import { SQLiteDatabase, SQLiteProvider } from "expo-sqlite";
+import { StyleSheet } from "react-native";
+import { TabNavigator } from "./Navigators/TabNavigator";
+
+async function deleteDatabase() {
+    try {
+        await SQLite.deleteDatabaseAsync("app.db");
+        console.log("Deleted database successfully!");
+    } catch (err) {
+        console.log("Failed to delete database. Err: ", err);
+    }
+}
 
 const queryClient = new QueryClient();
 
@@ -27,21 +27,40 @@ async function migrateDbIfNeeded(db: SQLiteDatabase) {
     if (currentVersion === 0) {
         await db.execAsync(`
             PRAGMA journal_mode = 'wal';
-            CREATE TABLE location_sections (
-                id INTEGER PRIMARY KEY NOT NULL,
-                name TEXT NOT NULL
-            );
+
             CREATE TABLE locations (
-                id TEXT PRIMARY KEY NOT NULL,
-                name TEXT NOT NULL,
-                abbr TEXT NOT NULL,
-                lat REAL NOT NULL,
-                lng REAL NOT NULL,
-                link TEXT NOT NULL,
-                icon TEXT NOT NULL,
-                glyph TEXT NOT NULL,
-                image TEXT,
-                section_id INTEGER NOT NULL REFERENCES location_sections(id)
+                id             TEXT PRIMARY KEY NOT NULL,
+                kind           TEXT NOT NULL,
+                name           TEXT NOT NULL,
+                category_id    TEXT NOT NULL REFERENCES categories(id),
+                lat            REAL NOT NULL,
+                lng            REAL NOT NULL,
+                subcategory_id TEXT NOT NULL,
+                url            TEXT,
+                image_url      TEXT,
+                description    TEXT,
+                group_name     TEXT,
+                searchable     INTEGER NOT NULL,  -- boolean
+                navigable      INTEGER NOT NULL,  -- boolean
+                building_id    TEXT
+            );
+
+            CREATE INDEX idx_locations_category_id ON locations(category_id);
+
+            CREATE TABLE categories (
+                id                  TEXT PRIMARY KEY NOT NULL,
+                name                TEXT NOT NULL,
+                subcategories_json  TEXT NOT NULL  -- JSON array of {id, name}
+            );
+        `);
+        currentVersion++;
+    }
+    if (currentVersion === 1) {
+        await db.execAsync(`
+            CREATE TABLE sync_state (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                checksum TEXT NOT NULL,
+                last_checked_at INTEGER NOT NULL -- Date.now(), ms
             );
         `);
         currentVersion++;
@@ -51,6 +70,8 @@ async function migrateDbIfNeeded(db: SQLiteDatabase) {
 }
 
 export function App() {
+    // deleteDatabase();
+
     return (
         <SQLiteProvider databaseName="app.db" onInit={migrateDbIfNeeded}>
             <QueryClientProvider client={queryClient}>
