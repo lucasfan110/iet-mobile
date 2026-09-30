@@ -2,6 +2,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Location from "expo-location";
 import {
+    Image,
     ImageRequireSource,
     ScrollView,
     StyleSheet,
@@ -271,7 +272,9 @@ export function CampusMapMainScreen() {
             return subcategoryImage;
         }
 
-        return LOCATION_CATEGORY_MARKER_IMAGE[location.categoryId];
+        const image = LOCATION_CATEGORY_MARKER_IMAGE[location.categoryId];
+
+        return image;
     }
 
     function setCategoryValue(categoryId: CategoryId, value: boolean) {
@@ -354,11 +357,12 @@ export function CampusMapMainScreen() {
                                 longitude: Number(location.lng),
                             }}
                             tracksViewChanges={false}
-                            image={getMarkerImage(location)}
+                            // image={getMarkerImage(location)}
                             // style={{
                             //     opacity: location.searchable ? 1 : 0.3,
                             // }}
                         >
+                            <Image source={getMarkerImage(location)} />
                             <Callout
                                 onPress={() => {
                                     navigation.navigate("Detail", {
